@@ -58,6 +58,8 @@ namespace ofxLibwebsockets {
         
         // close the server
         void close();
+
+        void closeConnection(string ip_address);
         
         // send to all connections
         void send( string message );
@@ -87,7 +89,6 @@ namespace ofxLibwebsockets {
         template<class T>
         void addListener(T * app){
             ofAddListener( serverProtocol.onconnectEvent, app, &T::onConnect); 
-            ofAddListener( serverProtocol.onopenEvent, app, &T::onOpen);
             ofAddListener( serverProtocol.oncloseEvent, app, &T::onClose);
             ofAddListener( serverProtocol.onidleEvent, app, &T::onIdle);
             ofAddListener( serverProtocol.onmessageEvent, app, &T::onMessage);
@@ -96,7 +97,6 @@ namespace ofxLibwebsockets {
         template<class T>
         void removeListener(T * app){
             ofRemoveListener( serverProtocol.onconnectEvent, app, &T::onConnect);
-            ofRemoveListener( serverProtocol.onopenEvent, app, &T::onOpen);
             ofRemoveListener( serverProtocol.oncloseEvent, app, &T::onClose);
             ofRemoveListener( serverProtocol.onidleEvent, app, &T::onIdle);
             ofRemoveListener( serverProtocol.onmessageEvent, app, &T::onMessage);

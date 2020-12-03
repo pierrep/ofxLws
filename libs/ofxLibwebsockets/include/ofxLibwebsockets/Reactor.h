@@ -21,20 +21,20 @@ namespace ofxLibwebsockets {
     public:
         Reactor();
         ~Reactor();
-        void exit();
+        //void exit();
         
         // methods
         virtual void close() = 0; // close main ws connection (or close server)
-        void close(Connection* const conn); // close a specific connection
+        //void close(Connection* const conn); // close a specific connection
         void registerProtocol(const std::string& name, Protocol& protocol);
         
         // parse JSON automatically? (true by default)
         bool bParseJSON;
         
         // getters
-        struct lws_context *   getContext();
-        vector<Connection *>            getConnections();
-        Connection *                    getConnection( int index );
+        struct lws_context *    getContext();
+        vector<Connection *>    getConnections();
+        Connection *            getConnection( int index );
         
         Protocol* const protocol(const unsigned int idx);
         std::vector<std::pair<std::string, Protocol*> > protocols;
@@ -59,10 +59,8 @@ namespace ofxLibwebsockets {
         
         unsigned int    largeBinarySize;
         ofBuffer        largeBinaryMessage;
-
-        bool closeAndFree;
         
-        virtual void threadedFunction(){};  
+        virtual void threadedFunction(){}
         
         string address;
         string path;
@@ -72,9 +70,8 @@ namespace ofxLibwebsockets {
         
         std::vector<struct lws_protocols> lws_protocols;
         
-        // maybe this should be a map?
         vector<Connection *> connections;
-        
+        bool bAllowDuplicateConnections;
         
     };
     

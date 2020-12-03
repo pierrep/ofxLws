@@ -25,7 +25,9 @@ int lws_client_callback(struct lws* ws, enum lws_callback_reasons reason, void* 
                 }
             }
 
-    ofLog(OF_LOG_NOTICE, "[ofxLibwebsockets] " + getCallbackReason(reason));
+    if(reason != LWS_CALLBACK_GET_THREAD_ID) {
+        ofLogVerbose("ofxLibwebsockets") << getCallbackReason(reason);
+    }
 
     if (reason == LWS_CALLBACK_CLIENT_ESTABLISHED) {
         lws_callback_on_writable(ws);
@@ -38,11 +40,10 @@ int lws_client_callback(struct lws* ws, enum lws_callback_reasons reason, void* 
     case LWS_CALLBACK_CLIENT_CONFIRM_EXTENSION_SUPPORTED:
     case LWS_CALLBACK_PROTOCOL_INIT: // this may be useful, says we're OK to allocate protocol data
     case LWS_CALLBACK_WSI_CREATE:
-
+    case LWS_CALLBACK_EVENT_WAIT_CANCELLED:
     case LWS_CALLBACK_HTTP_BODY_COMPLETION:
     case LWS_CALLBACK_HTTP_FILE_COMPLETION:
     case LWS_CALLBACK_HTTP_WRITEABLE:
-
     case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
         return 0;
 
@@ -73,7 +74,7 @@ int lws_client_callback(struct lws* ws, enum lws_callback_reasons reason, void* 
     case LWS_CALLBACK_GET_THREAD_ID:
     case LWS_CALLBACK_CLIENT_FILTER_PRE_ESTABLISH:
     case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER:
-        return 1;
+        return 0;
 
     // catch-all for most important events:
     // LWS_CALLBACK_CLIENT_CONNECTION_ERROR
@@ -84,10 +85,13 @@ int lws_client_callback(struct lws* ws, enum lws_callback_reasons reason, void* 
     // LWS_CALLBACK_CLIENT_WRITEABLE
     default:
         if (reactor != NULL) {
-            //conn = *(Connection**)user;
-            if (conn && conn->ws != ws && ws != NULL) {
-                conn->ws = ws;
-                //conn->context = context;
+            if (conn) {
+                if (conn->ws != ws && ws != NULL) {
+                    conn->ws = ws;
+                }
+                if (conn->getClientIP().empty()) {
+                    conn->setupAddress();
+                }
             }
             return reactor->_notify(conn, reason, (char*)data, len);
         } else {
@@ -102,13 +106,16 @@ int lws_callback(struct lws* ws, enum lws_callback_reasons reason, void* user, v
 {
     const struct lws_protocols* lws_protocol = (ws == NULL ? NULL : lws_get_protocol(ws));
     unsigned int idx = lws_protocol ? lws_protocol->id : 0;
+    struct lws_vhost* vh = lws_get_vhost(ws);
+    if(vh) {
+        //cout << "Vhost name = " << lws_get_vhost_name(vh) << " Port: " << lws_get_vhost_port(vh) << endl;
+    }
 
     // valid connection w/o a protocol
     if (ws != NULL && lws_protocol == NULL) {
-        // OK for now, returning 0 above
+        ofLogVerbose() << "lws_protocol is NULL";
+        return 1;
     }
-
-    //bool bAllowAllProtocls = (ws != NULL ? lws_protocol == NULL : false);
 
     Connection* conn;
     Connection** conn_ptr = (Connection**)user;
@@ -116,7 +123,6 @@ int lws_callback(struct lws* ws, enum lws_callback_reasons reason, void* user, v
     Protocol* protocol = NULL;
 
     for (int i = 0; i < (int)reactors.size(); i++) {
-        //if (reactors[i]->getContext() == context)
         {
             reactor = (Server*)reactors[i];
             protocol = reactor->protocol((idx > 0 ? idx : 0));
@@ -124,7 +130,9 @@ int lws_callback(struct lws* ws, enum lws_callback_reasons reason, void* user, v
         }
     }
 
-    ofLog(OF_LOG_NOTICE, "[ofxLibwebsockets] " + getCallbackReason(reason));
+    if(reason != LWS_CALLBACK_GET_THREAD_ID) {
+        ofLog(OF_LOG_VERBOSE, "[ofxLibwebsockets] " + getCallbackReason(reason));
+    }
 
     if (reason == LWS_CALLBACK_ESTABLISHED) {
         // server completed handshake, need to ask for next "writable" callback
@@ -176,8 +184,6 @@ int lws_callback(struct lws* ws, enum lws_callback_reasons reason, void* user, v
     case LWS_CALLBACK_CHANGE_MODE_POLL_FD:
     case LWS_CALLBACK_PROTOCOL_DESTROY:
     case LWS_CALLBACK_CLIENT_FILTER_PRE_ESTABLISH:
-        return 0;
-
     case LWS_CALLBACK_GET_THREAD_ID:
         break;
 
@@ -194,7 +200,6 @@ int lws_callback(struct lws* ws, enum lws_callback_reasons reason, void* user, v
             conn = *(Connection**)user;
         }
         if (conn != NULL && (conn->ws != ws || conn->ws == NULL)) {
-            //conn->context = context;
             conn->ws = ws;
             conn->setupAddress();
         }
@@ -225,13 +230,9 @@ void dump_handshake_info(struct lws_tokens* lwst)
         "Origin",
         "Draft",
         "Challenge",
-
-        /* new for 04 */
         "Key",
         "Version",
         "Sworigin",
-
-        /* new for 05 */
         "Extensions",
 
         /* client receives these */
@@ -254,6 +255,8 @@ string getCallbackReason(int reason)
     switch (reason) {
     case LWS_CALLBACK_ESTABLISHED:
         return "LWS_CALLBACK_ESTABLISHED";
+    case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP:
+        return "LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP";
     case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
         return "LWS_CALLBACK_CLIENT_CONNECTION_ERROR";
     case LWS_CALLBACK_CLIENT_FILTER_PRE_ESTABLISH:
@@ -291,6 +294,8 @@ string getCallbackReason(int reason)
         return "LWS_CALLBACK_HTTP_BIND_PROTOCOL";
     case LWS_CALLBACK_HTTP_DROP_PROTOCOL:
         return "LWS_CALLBACK_HTTP_DROP_PROTOCOL";
+    case LWS_CALLBACK_HTTP_CONFIRM_UPGRADE:
+        return "LWS_CALLBACK_HTTP_CONFIRM_UPGRADE";
     case LWS_CALLBACK_FILTER_NETWORK_CONNECTION:
         return "LWS_CALLBACK_FILTER_NETWORK_CONNECTION";
     case LWS_CALLBACK_FILTER_HTTP_CONNECTION:
@@ -331,14 +336,20 @@ string getCallbackReason(int reason)
         return "LWS_CALLBACK_LOCK_POLL";
     case LWS_CALLBACK_UNLOCK_POLL:
         return "LWS_CALLBACK_UNLOCK_POLL";
-
+    case LWS_CALLBACK_ADD_HEADERS:
+        return "LWS_CALLBACK_ADD_HEADERS";
+    case LWS_CALLBACK_CLIENT_CLOSED:
+        return "LWS_CALLBACK_CLIENT_CLOSED";
     case LWS_CALLBACK_USER:
         return "LWS_CALLBACK_USER";
-
+    case LWS_CALLBACK_WS_SERVER_DROP_PROTOCOL:
+        return "LWS_CALLBACK_WS_SERVER_DROP_PROTOCOL";
     case LWS_CALLBACK_EVENT_WAIT_CANCELLED:
         return "LWS_CALLBACK_EVENT_WAIT_CANCELLED";
     case LWS_CALLBACK_CLOSED_CLIENT_HTTP:
         return "LWS_CALLBACK_CLOSED_CLIENT_HTTP";
+    case LWS_CALLBACK_CLIENT_HTTP_BIND_PROTOCOL:
+        return "LWS_CALLBACK_CLIENT_HTTP_BIND_PROTOCOL";
 
     default:
         std::stringstream r;

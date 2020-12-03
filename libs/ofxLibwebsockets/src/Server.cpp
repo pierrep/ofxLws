@@ -16,7 +16,7 @@ namespace ofxLibwebsockets {
 	ServerOptions defaultServerOptions(){
         ServerOptions opts;
         opts.port           = 80;
-        opts.protocol       = "NULL"; // NULL == no protocol. most websockets behave this way.
+        opts.protocol       = "default";
         opts.bUseSSL        = false;
         opts.sslCertPath    = ofToDataPath("ssl/libwebsockets-test-server.pem", true);
         opts.sslKeyPath     = ofToDataPath("ssl/libwebsockets-test-server.key.pem", true);
@@ -33,13 +33,13 @@ namespace ofxLibwebsockets {
         waitMillis = 1;
         reactors.push_back(this);
         
-        defaultOptions = defaultServerOptions();
-        ofLogNotice() << "New Server...";        
+        defaultOptions = defaultServerOptions();      
     }
     
     //--------------------------------------------------------------
     Server::~Server(){
-        exit();
+        ofLogVerbose() << "Server destructor...";
+        close();
     }
 
     //--------------------------------------------------------------
@@ -64,7 +64,7 @@ namespace ofxLibwebsockets {
 			LLL_WARN = 1 << 1,
 			LLL_NOTICE = 1 << 2,
 			LLL_INFO = 1 << 3,
-			LLL_DEBUG = 1 << 4,
+            LLL_DEBUG = 1 << 4,ofxLibwebsockets
 			LLL_PARSER = 1 << 5,
 			LLL_HEADER = 1 << 6,
 			LLL_EXT = 1 << 7,
@@ -73,7 +73,8 @@ namespace ofxLibwebsockets {
 			LLL_COUNT = 10 
 		};
 		*/
-        lws_set_log_level(LLL_INFO, nullptr);
+        //lws_set_log_level(LLL_INFO, nullptr);
+        lws_set_log_level(LLL_ERR|LLL_WARN|LLL_NOTICE, nullptr);
 
         defaultOptions = options;
         
@@ -119,11 +120,12 @@ namespace ofxLibwebsockets {
         info.ssl_private_key_filepath = sslKey;
         info.gid = -1;
         info.uid = -1;
+        int opts = LWS_SERVER_OPTION_VALIDATE_UTF8 ;
 
         if( defaultOptions.bUseSSL) {
-            info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+            info.options = opts | LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
         } else {
-            info.options = 0;
+            info.options = opts;
         }
         
         if ( options.ka_time != 0 ){
@@ -135,28 +137,31 @@ namespace ofxLibwebsockets {
         context = lws_create_context(&info);
         
         if (context == NULL){
-            ofLogError() << "[ofxLibwebsockets] libwebsockets init failed";
+            ofLogError("Server") << "[ofxLibwebsockets] libwebsockets init failed";
             return false;
         } else {
+            ofLogNotice("Server") << "New Server on port " << port << "...";
             startThread(); // blocking, non-verbose        
             return true;
         }
     }
     
     //--------------------------------------------------------------
-	void Server::close() {
+    void Server::close() {
+        ofLogNotice("Server") << "Server is closing...";
+        lws_cancel_service(context);
         if (isThreadRunning()){
-            // this is the strategy from ofxKinect
             stopThread();
             ofSleepMillis(10);
-            waitForThread(false);
+            waitForThread(false,5000);
+            ofLogNotice("Server") << "Thread stopped...";
         }
-		lws_context_destroy(context);
-	}
+        lws_context_destroy(context);
+    }
     
     //--------------------------------------------------------------
     void Server::send( string message ){
-        for (int i=0; i<connections.size(); i++){
+        for (size_t i=0; i<connections.size(); i++){
             if ( connections[i] ){
                 connections[i]->send( message );
             }
@@ -175,7 +180,7 @@ namespace ofxLibwebsockets {
     
     //--------------------------------------------------------------
     void Server::sendBinary( char * data, int size ){
-        for (int i=0; i<connections.size(); i++){
+        for (size_t i=0; i<connections.size(); i++){
             if ( connections[i] ){
                 connections[i]->sendBinary( data, size );
             }
@@ -185,7 +190,7 @@ namespace ofxLibwebsockets {
     //--------------------------------------------------------------
     void Server::send( string message, string ip ){
         bool bFound = false;
-        for (int i=0; i<connections.size(); i++){
+        for (size_t i=0; i<connections.size(); i++){
             if ( connections[i] ){
                 if ( connections[i]->getClientIP() == ip ){
                     connections[i]->send( message );
@@ -193,7 +198,7 @@ namespace ofxLibwebsockets {
                 }
             }
         }
-        if ( !bFound ) ofLog( OF_LOG_ERROR, "[ofxLibwebsockets] Connection not found at this IP!" );
+        if ( !bFound ) ofLogError("Server") << "Connection not found at this IP!";
     }
     
     //getters
@@ -204,7 +209,7 @@ namespace ofxLibwebsockets {
     
     //--------------------------------------------------------------
     string Server::getProtocol(){
-        return ( defaultOptions.protocol == "NULL" ? "none" : defaultOptions.protocol );
+        return ( defaultOptions.protocol == "default" ? "default" : defaultOptions.protocol );
     }
     
     //--------------------------------------------------------------
@@ -213,10 +218,22 @@ namespace ofxLibwebsockets {
     }
 
     //--------------------------------------------------------------
+    void Server::closeConnection(string ip_address)
+    {
+        for (size_t i=0; i<connections.size(); i++){
+            if ( std::strcmp(connections[i]->getClientIP().c_str(),ip_address.c_str()) == 0) {
+                lock();
+                connections.erase( connections.begin() + i );
+                unlock();
+            }
+        }
+    }
+
+    //--------------------------------------------------------------
     void Server::threadedFunction()
     {
         while (isThreadRunning())
-        {
+        {            
             // update all connections
             for (size_t i=0; i<connections.size(); i++){
                 if ( connections[i] ){
@@ -233,10 +250,14 @@ namespace ofxLibwebsockets {
             
             if (lock())
             {
-                lws_service(context, waitMillis);
+                int n = lws_service(context, -1);
+                if(n < 0) {
+                    ofLogError() << "lws_service returned an error: " << n;
+                }
                 unlock();
             }
-            yield();
+            ofSleepMillis(1);
         }
     }
-}
+
+} // namespace ofxLibwebsockets

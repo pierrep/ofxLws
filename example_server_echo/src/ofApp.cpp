@@ -2,24 +2,25 @@
 
 //--------------------------------------------------------------
 void ofApp::setup(){
+    ofSetLogLevel(OF_LOG_NOTICE);
+    ofBackground(0);
+
     // setup a server with default options on port 9092
     // - pass in true after port to set up with SSL
     //bSetup = server.setup( 9093 );
 
     ofxLibwebsockets::ServerOptions options = ofxLibwebsockets::defaultServerOptions();
-    options.port = 9000;
+    options.port = 9092;
 	options.bUseSSL = false; // you'll have to manually accept this self-signed cert if 'true'!
     bSetup = server.setup( options );
     
     // this adds your app as a listener for the server
-    server.addListener(this);
-    
-    ofBackground(0);
-    ofSetFrameRate(60);
+    server.addListener(this);        
 }
 
 //--------------------------------------------------------------
 void ofApp::update(){
+    ofSetWindowTitle(ofToString(ofGetFrameRate()));
 }
 
 //--------------------------------------------------------------
@@ -54,29 +55,24 @@ void ofApp::draw(){
 
 //--------------------------------------------------------------
 void ofApp::onConnect( ofxLibwebsockets::Event& args ){
-    cout<<"on connected"<<endl;
-}
-
-//--------------------------------------------------------------
-void ofApp::onOpen( ofxLibwebsockets::Event& args ){
-    cout<<"new connection open"<<endl;
-    messages.push_back("New connection from " + args.conn.getClientIP() + ", " + args.conn.getClientName() );
+    ofLogNotice() << "New connection from " + args.conn.getClientIP();
+    messages.push_back("New connection from " + args.conn.getClientIP());
 }
 
 //--------------------------------------------------------------
 void ofApp::onClose( ofxLibwebsockets::Event& args ){
-    cout<<"on close"<<endl;
+    ofLogNotice() << "Connection to " << args.conn.getClientIP() << " closed";
     messages.push_back("Connection closed");
 }
 
 //--------------------------------------------------------------
 void ofApp::onIdle( ofxLibwebsockets::Event& args ){
-    cout<<"on idle"<<endl;
+    ofLogVerbose() << "on idle"<< endl;
 }
 
 //--------------------------------------------------------------
 void ofApp::onMessage( ofxLibwebsockets::Event& args ){
-    cout<<"got message "<<args.message<<endl;
+    ofLogNotice() << "Got message " << args.message << " from " <<args.conn.getClientIP();
     
     // trace out string messages or JSON messages!
     if ( !args.json.is_null() ){
@@ -87,11 +83,6 @@ void ofApp::onMessage( ofxLibwebsockets::Event& args ){
         
     // echo server = send message right back!
     args.conn.send( args.message );
-}
-
-//--------------------------------------------------------------
-void ofApp::onBroadcast( ofxLibwebsockets::Event& args ){
-    cout<<"got broadcast "<<args.message<<endl;    
 }
 
 //--------------------------------------------------------------
@@ -135,7 +126,7 @@ void ofApp::mousePressed(int x, int y, int button){
         url += "s";
     }
     url += "://localhost:" + ofToString( server.getPort() );
-    ofLaunchBrowser(url);
+    //ofLaunchBrowser(url);
 }
 
 //--------------------------------------------------------------

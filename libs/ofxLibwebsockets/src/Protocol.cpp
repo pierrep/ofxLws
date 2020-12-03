@@ -27,6 +27,7 @@ namespace ofxLibwebsockets {
 
     //--------------------------------------------------------------
     Protocol::~Protocol() {
+        ofLogVerbose() << "Protocol destructed";
         ofRemoveListener(onconnectEvent,   this, &Protocol::_onconnect);
         ofRemoveListener(onopenEvent,      this, &Protocol::_onopen);
         ofRemoveListener(oncloseEvent,     this, &Protocol::_onclose);

@@ -60,7 +60,7 @@ namespace ofxLibwebsockets {
         
         void setupAddress();
         
-        lws_context* context;
+        //lws_context* context;
         lws* ws;
         Reactor*  reactor;
         Protocol* protocol;

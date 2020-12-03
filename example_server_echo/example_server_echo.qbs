@@ -18,7 +18,7 @@ Project{
         ]
 
         of.addons: [
-            'ofxLibwebsockets',
+            'ofxLws',
         ]
 
         // additional flags for the project. the of module sets some
@@ -33,7 +33,7 @@ Project{
                                 // and can be checked with #ifdef or #if in the code
         of.frameworks: []       // osx only, additional frameworks to link with the project
         of.staticLibraries: []  // static libraries
-        of.dynamicLibraries: ["websockets"] // dynamic libraries
+        of.dynamicLibraries: ["ssl","crypto"] // dynamic libraries
 
         // other flags can be set through the cpp module: http://doc.qt.io/qbs/cpp-module.html
         // eg: this will enable ccache when compiling

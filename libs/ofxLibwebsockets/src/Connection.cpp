@@ -15,7 +15,6 @@ namespace ofxLibwebsockets {
     Connection::Connection(Reactor* const _reactor, Protocol* const _protocol)
     : reactor(_reactor)
     , protocol(_protocol)
-    , context(NULL)
     , ws(NULL)
     //, buf(LWS_SEND_BUFFER_PRE_PADDING+1024+LWS_SEND_BUFFER_POST_PADDING)
     {
@@ -29,6 +28,8 @@ namespace ofxLibwebsockets {
     
     //--------------------------------------------------------------
     Connection::~Connection(){
+        ofLogNotice() << "Connection destructor...";
+        close();
         free(buf);
         free(binaryBuf);
         
@@ -39,11 +40,12 @@ namespace ofxLibwebsockets {
     //--------------------------------------------------------------
     void Connection::close() {
         // delete all pending frames
+        ofLogNotice() << "Closing connection...";
         messages_binary.clear();
         messages_text.clear();
-        if (reactor != NULL){
-            reactor->close(this);
-        }
+//        if (reactor != NULL){
+//            reactor->close(this);
+//        }
     }
     
     //--------------------------------------------------------------
@@ -57,14 +59,15 @@ namespace ofxLibwebsockets {
     }
     
     //--------------------------------------------------------------
-    void Connection::setupAddress(){
-        int fd = lws_get_socket_fd( ws );
-        
-        client_ip.resize(128);
-        client_name.resize(128);
-        
-        lws_get_peer_addresses(ws, fd, &client_name[0], client_name.size(),
-                                         &client_ip[0], client_ip.size());
+    void Connection::setupAddress(){                        
+        // old way:
+        //int fd = lws_get_socket_fd( ws );
+        //lws_get_peer_addresses(ws, fd, &client_name[0], client_name.size(),&client_ip[0], client_ip.size());
+
+        char ip[128];
+        lws_get_peer_simple(ws,ip,128);
+        client_ip = ip;
+        client_name = client_ip;
     }
     
     //--------------------------------------------------------------
@@ -72,9 +75,7 @@ namespace ofxLibwebsockets {
     {
         if ( ws == NULL) return;
         if ( message.size() == 0 ) return;
-        int n = 0;
         
-        // changed 3/6/15: buffer all messages to prevent threading errors
         TextPacket tp;
         tp.index = 0;
         tp.message = message;
@@ -113,8 +114,10 @@ namespace ofxLibwebsockets {
     
     //--------------------------------------------------------------
     void Connection::update(){
+
         // process standard ws messages
         if ( messages_text.size() > 0 && idle ){
+
             // grab first packet
             TextPacket & packet = messages_text[0];
             
@@ -141,7 +144,7 @@ namespace ofxLibwebsockets {
             int n = lws_write(ws, &buf[LWS_SEND_BUFFER_PRE_PADDING], dataSize, (lws_write_protocol) writeMode );
             
             if ( n < -1 ){
-                ofLogError()<<"[ofxLibwebsockets] ERROR writing to socket";
+                ofLogError("ofxLibwebsockets")<< "Error writing to socket";
             }
             
             lws_callback_on_writable(ws);
@@ -153,12 +156,14 @@ namespace ofxLibwebsockets {
             }
             
         } else if ( messages_text.size() > 0 && messages_text[0].index ){
+            ofLogNotice() << "lws_callback_on_writable() called";
             lws_callback_on_writable(ws);
         }
         
         // process binary messages
         if ( messages_binary.size() > 0 && idle ){
             if ( messages_binary.size() > 0 ){
+                ofLogVerbose() << "Process binary message...";
                 BinaryPacket & packet = messages_binary[0];
             
                 int dataSize = bufferSize > packet.size ? packet.size : bufferSize;

@@ -10,34 +10,20 @@
 
 namespace ofxLibwebsockets {
 
-static const struct lws_extension exts[] = {
-    {
-        "permessage-deflate",
-        lws_extension_callback_pm_deflate,
-        "permessage-deflate; client_no_context_takeover"
-    },
-    {
-        "deflate-frame",
-        lws_extension_callback_pm_deflate,
-        "deflate_frame"
-    },
-    { NULL, NULL, NULL /* terminator */ }
-};
-
    ClientOptions defaultClientOptions(){
        ClientOptions opts;
        opts.host      = "localhost";
        opts.port      = 80;
        opts.bUseSSL   = false;
        opts.path   = "/";
-       opts.protocol  = "NULL";
+       opts.protocol  = "default";
        opts.version   = -1;     //use latest version
 
        // Note, turning this on has been seen to cause an EXC_BAD_ACCESS error
        // when calling lws_service() in threadedFunction(). If you're
        // having issues, try raising the reconnect interval, or not using this
        // reconnect option. Use at your own risk!
-       opts.reconnect = false;
+       opts.reconnect = true;
        opts.reconnectInterval = 1000;
 
        opts.ka_time      = 0;
@@ -49,21 +35,20 @@ static const struct lws_extension exts[] = {
     Client::Client(){
         context = NULL;
         connection = NULL;
-        waitMillis = 500;
+        waitMillis = 1;
         reactors.push_back(this);
         
         defaultOptions = defaultClientOptions();
 
         ofAddListener( ofEvents().update, this, &Client::update);
         ofAddListener( clientProtocol.oncloseEvent, this, &Client::onClose);
-
-        ofLogNotice() << "New Client...";
     }
 
     
     //--------------------------------------------------------------
     Client::~Client(){
-        exit();
+        ofLogVerbose() << "Client destructor...";
+        close();
         ofRemoveListener( ofEvents().update, this, &Client::update);
     }
     
@@ -87,7 +72,6 @@ static const struct lws_extension exts[] = {
 
     //--------------------------------------------------------------
     bool Client::connect ( ClientOptions options ){
-        ofLog( OF_LOG_VERBOSE, "[ofxLibwebsockets] connect: "+options.host+":"+ofToString(options.port)+" path: "+options.path+" Use SSL: "+ofToString(options.bUseSSL) );
         address = options.host;
         port    = options.port;  
         path = options.path;
@@ -109,8 +93,8 @@ static const struct lws_extension exts[] = {
 			LLL_COUNT = 10 
 		};
 		*/
-        //lws_set_log_level(LLL_ERR, NULL);
-        lws_set_log_level(LLL_INFO|LLL_ERR|LLL_WARN|LLL_NOTICE|LLL_HEADER|LLL_CLIENT, nullptr);
+        lws_set_log_level(LLL_ERR|LLL_WARN, NULL);
+        //lws_set_log_level(LLL_INFO|LLL_ERR|LLL_WARN|LLL_NOTICE|LLL_HEADER|LLL_CLIENT, nullptr);
 
         // set up default protocols
         struct lws_protocols null_protocol = { NULL, NULL, 0 };
@@ -135,7 +119,6 @@ static const struct lws_extension exts[] = {
         memset(&info, 0, sizeof info);
         info.port = CONTEXT_PORT_NO_LISTEN;
         info.protocols = &lws_protocols[0];
-        info.extensions = exts;
         info.gid = -1;
         info.uid = -1;
         
@@ -176,24 +159,24 @@ static const struct lws_extension exts[] = {
                 ccinfo.protocol = options.protocol.c_str();
             }
 
-            ofLogNotice() << "ccinfo.address = " << ccinfo.address;
-            ofLogNotice() << "ccinfo.port = " << ccinfo.port;
-            ofLogNotice() << "ccinfo.ssl_connection = " <<  ccinfo.ssl_connection;
-            ofLogNotice() << "ccinfo.path = " << ccinfo.path;
-            ofLogNotice() << "ccinfo.host = " << ccinfo.host;
-            ofLogNotice() << "ccinfo.origin = " << ccinfo.origin;
-            ofLogNotice() << "ccinfo.protocol = " << ccinfo.protocol;
+            ofLogVerbose() << "ccinfo.address = " << ccinfo.address;
+            ofLogVerbose() << "ccinfo.port = " << ccinfo.port;
+            ofLogVerbose() << "ccinfo.ssl_connection = " <<  ccinfo.ssl_connection;
+            ofLogVerbose() << "ccinfo.path = " << ccinfo.path;
+            ofLogVerbose() << "ccinfo.host = " << ccinfo.host;
+            ofLogVerbose() << "ccinfo.origin = " << ccinfo.origin;
+            ofLogVerbose() << "ccinfo.protocol = " << ccinfo.protocol;
 
             lwsconnection = lws_client_connect_via_info(&ccinfo);
                         
             if ( lwsconnection == NULL ){
-                ofLogError() << "[ofxLibwebsockets] client connection failed";
+                ofLogError("ofxLibwebsockets") << "Client connection failed";
                 return false;
             } else {
                 connection = new Connection( (Reactor*) &context, &clientProtocol );
-                connection->ws = lwsconnection;
+                connection->ws = lwsconnection;                
                 
-                ofLogVerbose() << "[ofxLibwebsockets] Connection successfully created. Connecting.";
+                ofLogNotice("Client") << "Initiating connection to "  << ccinfo.address << " port: " << ccinfo.port << " path: "+options.path+" SSL: "+ofToString(options.bUseSSL);
 
                 startThread();
                 return true;
@@ -217,24 +200,25 @@ static const struct lws_extension exts[] = {
 
     //--------------------------------------------------------------
     void Client::close(){
-        ofLogNotice() << "Client close()";
+        ofLogNotice("Client") << "Closing...";
+
         // Self-initiated call to close() means we shouldn't try to reconnect
         bShouldReconnect = false;
 
         if (isThreadRunning()){
-            waitForThread(true);
-        } else {
-			return;
-		}
+            stopThread();
+            ofSleepMillis(10);
+            waitForThread(false,5000);
+            ofLogNotice("Server") << "Thread stopped...";
+        }
+
         if ( context != NULL ){
-            //lws_close_and_free_session( context, lwsconnection, LWS_CLOSE_STATUS_NORMAL);
-            closeAndFree = true;
             lws_context_destroy( context );
             context = NULL;        
             lwsconnection = NULL;
         }
 		if ( connection != NULL){
-                //delete connection;
+            delete connection;
 			connection = NULL;                
 		}
     }
@@ -242,15 +226,6 @@ static const struct lws_extension exts[] = {
 
     //--------------------------------------------------------------
     void Client::onClose( Event& args ){
-		// on windows an exit of the server let's the client crash
-		// the event is called from the processing of the thread
-		// thus all we can do wait for the thread to stop itself
-		// by detecting that lwsconnection is NULL
-        ofLogNotice() << "onClose()";
-		if ( context != NULL ){
-			closeAndFree = true;
-			lwsconnection = NULL;
-		}
 
 		lastReconnectTime = ofGetElapsedTimeMillis();
     }
@@ -297,7 +272,6 @@ static const struct lws_extension exts[] = {
     //--------------------------------------------------------------
     void Client::threadedFunction(){
         while ( isThreadRunning() ){
-            //cout << "thread running, waitMillis = " << waitMillis << endl;
             for (int i=0; i<protocols.size(); ++i){
                 if (protocols[i].second != NULL){
                     //lock();
@@ -306,26 +280,14 @@ static const struct lws_extension exts[] = {
                 }
             }
             if (context != NULL && lwsconnection != NULL){
-                //lws_callback_on_writable(context,lwsconnection);
                 connection->update();
                 
                 if (lock())
                 {
-                    int n = lws_service(context, waitMillis);
+                    int n = lws_service(context, -1);
                     unlock();
                 }
-                yield();
-            } else {
-				stopThread();
-				if ( context != NULL ){
-					closeAndFree = true;
-					lws_context_destroy( context );
-					context = NULL;        
-					lwsconnection = NULL;
-				}
-				if (connection != NULL){
-					connection = NULL;                
-				}
+                ofSleepMillis(1);
             }
         }
     }

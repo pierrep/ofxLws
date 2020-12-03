@@ -18,7 +18,7 @@ Project{
         ]
 
         of.addons: [
-            'ofxLibwebsockets',
+            'ofxLws',
         ]
 
         // additional flags for the project. the of module sets some

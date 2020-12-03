@@ -6,6 +6,7 @@
 //
 
 #include "ofxLibwebsockets/Reactor.h"
+#include "ofxLibwebsockets/Util.h"
 
 namespace ofxLibwebsockets { 
 
@@ -13,19 +14,19 @@ namespace ofxLibwebsockets {
 
     //--------------------------------------------------------------
     Reactor::Reactor()
-    : context(NULL), waitMillis(50){
+    : context(NULL), waitMillis(20){
         //reactors.push_back(this);
-        bParseJSON = true;
+        bParseJSON = false;
         largeMessage = "";
         largeBinaryMessage.clear();
         largeBinarySize     = 0;
         bReceivingLargeMessage  = false;
-        closeAndFree = false;
+        bAllowDuplicateConnections = false;
     }
 
     //--------------------------------------------------------------
     Reactor::~Reactor(){
-        exit();
+        //exit();
     }
 
     //--------------------------------------------------------------
@@ -45,37 +46,25 @@ namespace ofxLibwebsockets {
     void Reactor::setWaitMillis(int millis){
         waitMillis = millis;
     }
-    //--------------------------------------------------------------
-    void Reactor::close(Connection* const conn){
-        if (conn != NULL && conn->ws != NULL){
-          // In the current git for the library, lws_close_and_free_session() has been removed from the public api.
-
-          //Instead, if you return -1 from the user callback, the library will understand it should call lws_close_and_free_session() for you.
-
-          //Calling lws_close_and_free_session() from outside the callback made trouble, because it frees the struct libwebsocket while the library may still hold pointers.
-
-            //lws_close_and_free_session(context, conn->ws, LWS_CLOSE_STATUS_NORMAL);
-            closeAndFree = true;
-        }
-    }
 
     //--------------------------------------------------------------
-    void Reactor::exit(){
-        if (context != NULL)
-        {
-            if (isThreadRunning()){
-                // this is the strategy from ofxKinect
-                stopThread();
-                ofSleepMillis(10);
-                waitForThread(false);
-            }
-			// on windows the app does crash if the context is destroyed
-			// while the thread or the library still might hold pointers
-			// better to live with non deleted memory, or?
-            //lws_context_destroy(context);
-            context = NULL;
-        }
-    }
+//    void Reactor::exit(){
+//        if (context != NULL)
+//        {
+//            ofLogNotice() << "Reactor exiting....";
+//            if (isThreadRunning()){
+//                // this is the strategy from ofxKinect
+//                stopThread();
+//                ofSleepMillis(10);
+//                waitForThread(false,5000);
+//            }
+//			// on windows the app does crash if the context is destroyed
+//			// while the thread or the library still might hold pointers
+//			// better to live with non deleted memory, or?
+//            lws_context_destroy(context);
+//            //context = NULL;
+//        }
+//    }
 
 
     //--------------------------------------------------------------
@@ -114,20 +103,14 @@ namespace ofxLibwebsockets {
                                 const char* const _message,
                                 const unsigned int len){
         
-        // this happens with events that don't use the connection
-        // so not always a problem
+        // this happens with events that don't use the connection so not always a problem
         if (conn == NULL || conn->protocol == NULL || conn->ws == NULL ){
             if (conn == NULL){
-                ofLog(OF_LOG_WARNING, "[ofxLibwebsockets] connection is null ");
+                ofLogVerbose("ofxLibwebsockets") << "Connection is NULL. Reason: " << getCallbackReason(reason);
             } else {
-                ofLog(OF_LOG_WARNING, "[ofxLibwebsockets] protocol is null");
+                ofLogVerbose("ofxLibwebsockets") << "Protocol is NULL. Reason: " << getCallbackReason(reason);
             }
             return 1;
-        }
-
-        if (closeAndFree){
-          closeAndFree = false;
-          return -1;
         }
         
         std::string message;
@@ -138,7 +121,7 @@ namespace ofxLibwebsockets {
             case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
                 ofLogError()<<"[ofxLibwebsockets] Connection error";
                 
-                for (int i=0; i<connections.size(); i++){
+                for (size_t i=0; i<connections.size(); i++){
                     if ( connections[i] == conn ){
                         connections.erase( connections.begin() + i );
                         break;
@@ -151,7 +134,7 @@ namespace ofxLibwebsockets {
             case LWS_CALLBACK_WSI_DESTROY:
             {
                 bool bFound = false;
-                for (int i=0; i<connections.size(); i++){
+                for (size_t i=0; i<connections.size(); i++){
                     if ( connections[i] == conn ){
                         bFound = true; // valid connection
                         connections.erase( connections.begin() + i );
@@ -163,16 +146,32 @@ namespace ofxLibwebsockets {
             }
                 break;
             
-            case LWS_CALLBACK_ESTABLISHED:          // server connected with client
             case LWS_CALLBACK_CLIENT_ESTABLISHED:   // client connected with server
                 connections.push_back( conn );
-                ofNotifyEvent(conn->protocol->onopenEvent, args);
+                ofNotifyEvent(conn->protocol->onconnectEvent, args);
+                break;
+            case LWS_CALLBACK_ESTABLISHED:          // server connected with client
+                if(bAllowDuplicateConnections) {
+                    connections.push_back( conn );
+                    ofNotifyEvent(conn->protocol->onconnectEvent, args);
+                }  else {
+                    for (size_t i=0; i<connections.size(); i++){
+                        if ( strcmp(connections[i]->getClientIP().c_str(),conn->getClientIP().c_str()) == 0)
+                        {
+                            //close the connection
+                            return 1;
+                        }
+                    }
+                    connections.push_back( conn );
+                    ofNotifyEvent(conn->protocol->onconnectEvent, args);
+                }
                 break;
                 
             case LWS_CALLBACK_CLOSED:
                 // erase connection from vector
-                for (int i=0; i<connections.size(); i++){
+                for (size_t i=0; i<connections.size(); i++){
                     if ( connections[i] == conn ){
+                        ofLogNotice() << "Deleting connection";
                         connections.erase( connections.begin() + i );
                         break;
                     }
@@ -272,9 +271,15 @@ namespace ofxLibwebsockets {
                     }
                 }
                 break;
+
+            case LWS_CALLBACK_PROTOCOL_DESTROY:
+            case LWS_CALLBACK_CLIENT_CLOSED:
+            case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP:
+            case LWS_CALLBACK_EVENT_WAIT_CANCELLED:                
+                break;
                 
             default:
-                ofLogNotice() << "[ofxLibwebsockets] received unknown event " << reason;
+                ofLogNotice("Reactor") << "Received unknown event " << reason;
                 break;
         }
         

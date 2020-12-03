@@ -35,9 +35,7 @@ class ofApp : public ofBaseApp{
     
         // websocket methods
         void onConnect( ofxLibwebsockets::Event& args );
-        void onOpen( ofxLibwebsockets::Event& args );
         void onClose( ofxLibwebsockets::Event& args );
         void onIdle( ofxLibwebsockets::Event& args );
         void onMessage( ofxLibwebsockets::Event& args );
-        void onBroadcast( ofxLibwebsockets::Event& args );
 };

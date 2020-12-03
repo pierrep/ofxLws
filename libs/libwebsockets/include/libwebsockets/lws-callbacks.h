@@ -1,24 +1,25 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010-2018 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
  *
- *  This library is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Lesser General Public
- *  License as published by the Free Software Foundation:
- *  version 2.1 of the License.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *  This library is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  Lesser General Public License for more details.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- *  MA  02110-1301  USA
- *
- * included from libwebsockets.h
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
  */
 
 /*! \defgroup usercb User Callback
@@ -61,6 +62,7 @@ enum {
 	LWS_TLS_REQ_ELEMENT_LOCALITY,
 	LWS_TLS_REQ_ELEMENT_ORGANIZATION,
 	LWS_TLS_REQ_ELEMENT_COMMON_NAME,
+	LWS_TLS_REQ_ELEMENT_SUBJECT_ALT_NAME,
 	LWS_TLS_REQ_ELEMENT_EMAIL,
 
 	LWS_TLS_REQ_ELEMENT_COUNT,
@@ -76,6 +78,17 @@ enum {
 struct lws_acme_cert_aging_args {
 	struct lws_vhost *vh;
 	const char *element_overrides[LWS_TLS_TOTAL_COUNT]; /* NULL = use pvo */
+};
+
+/*
+ * With LWS_CALLBACK_FILTER_NETWORK_CONNECTION callback, user_data pointer
+ * points to one of these
+ */
+
+struct lws_filter_network_conn_args {
+	struct sockaddr_storage		cli_addr;
+	socklen_t			clilen;
+	lws_sockfd_type			accept_fd;
 };
 
 /*
@@ -104,6 +117,9 @@ enum lws_callback_reasons {
 
 	LWS_CALLBACK_WSI_DESTROY				= 30,
 	/**< outermost (latest) wsi destroy notification to protocols[0] */
+
+	LWS_CALLBACK_WSI_TX_CREDIT_GET				= 103,
+	/**< manually-managed connection received TX credit (len is int32) */
 
 
 	/* ---------------------------------------------------------------------
@@ -278,6 +294,15 @@ enum lws_callback_reasons {
 	 *          break;
 	 */
 
+	LWS_CALLBACK_VERIFY_BASIC_AUTHORIZATION = 102,
+	/**< This gives the user code a chance to accept or reject credentials
+	 * provided HTTP to basic authorization. It will only be called if the
+	 * http mount's authentication_mode is set to LWSAUTHM_BASIC_AUTH_CALLBACK
+	 * `in` points to a credential string of the form `username:password` If
+	 * the callback returns zero (the default if unhandled), then the
+	 * transaction ends with HTTP_STATUS_UNAUTHORIZED, otherwise the request
+	 * will be processed */
+
 	LWS_CALLBACK_CHECK_ACCESS_RIGHTS			= 51,
 	/**< This gives the user code a chance to forbid an http access.
 	 * `in` points to a `struct lws_process_html_args`, which
@@ -344,19 +369,23 @@ enum lws_callback_reasons {
 	 * one callback. */
 
 	LWS_CALLBACK_RECEIVE_CLIENT_HTTP			= 46,
-	/**< This simply indicates data was received on the HTTP client
-	 * connection.  It does NOT drain or provide the data.
-	 * This exists to neatly allow a proxying type situation,
-	 * where this incoming data will go out on another connection.
-	 * If the outgoing connection stalls, we should stall processing
-	 * the incoming data.  So a handler for this in that case should
-	 * simply set a flag to indicate there is incoming data ready
-	 * and ask for a writeable callback on the outgoing connection.
-	 * In the writable callback he can check the flag and then get
-	 * and drain the waiting incoming data using lws_http_client_read().
-	 * This will use callbacks to LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ
-	 * to get and drain the incoming data, where it should be sent
-	 * back out on the outgoing connection. */
+	/**< This indicates data was received on the HTTP client connection.  It
+	 * does NOT actually drain or provide the data, so if you are doing
+	 * http client, you MUST handle this and call lws_http_client_read().
+	 * Failure to deal with it as in the minimal examples may cause spinning
+	 * around the event loop as it's continuously signalled the same data
+	 * is available for read.  The related minimal examples show how to
+	 * handle it.
+	 *
+	 * It's possible to defer calling lws_http_client_read() if you use
+	 * rx flow control to stop further rx handling on the connection until
+	 * you did deal with it.  But normally you would call it in the handler.
+	 *
+	 * lws_http_client_read() strips any chunked framing and calls back
+	 * with only payload data to LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ.  The
+	 * chunking is the reason this is not just all done in one callback for
+	 * http.
+	 */
 	LWS_CALLBACK_COMPLETED_CLIENT_HTTP			= 47,
 	/**< The client transaction completed... at the moment this
 	 * is the same as closing since transaction pipelining on
@@ -371,6 +400,9 @@ enum lws_callback_reasons {
 	 * From this callback, when you have sent everything, you should let
 	 * lws know by calling lws_client_http_body_pending(wsi, 0)
 	 */
+
+	LWS_CALLBACK_CLIENT_HTTP_REDIRECT			= 104,
+	/**< we're handling a 3xx redirect... return nonzero to hang up */
 
 	LWS_CALLBACK_CLIENT_HTTP_BIND_PROTOCOL			= 85,
 	LWS_CALLBACK_CLIENT_HTTP_DROP_PROTOCOL			= 76,
@@ -560,9 +592,17 @@ enum lws_callback_reasons {
 	/**< called when a client connects to
 	 * the server at network level; the connection is accepted but then
 	 * passed to this callback to decide whether to hang up immediately
-	 * or not, based on the client IP.  in contains the connection
-	 * socket's descriptor. Since the client connection information is
-	 * not available yet, wsi still pointing to the main server socket.
+	 * or not, based on the client IP.
+	 *
+	 * user_data in the callback points to a
+	 * struct lws_filter_network_conn_args that is prepared with the
+	 * sockfd, and the peer's address information.
+	 *
+	 * in contains the connection socket's descriptor.
+	 *
+	 * Since the client connection information is not available yet,
+	 * wsi still pointing to the main server socket.
+	 *
 	 * Return non-zero to terminate the connection before sending or
 	 * receiving anything. Because this happens immediately after the
 	 * network connection from the client, there's no websocket protocol
@@ -809,6 +849,30 @@ enum lws_callback_reasons {
 	 * and failure.  in points to optional JSON, and len represents the
 	 * connection state using enum lws_cert_update_state */
 
+	/* ---------------------------------------------------------------------
+	 * ----- Callbacks related to MQTT Client  -----
+	 */
+
+	LWS_CALLBACK_MQTT_NEW_CLIENT_INSTANTIATED		= 200,
+	LWS_CALLBACK_MQTT_IDLE					= 201,
+	LWS_CALLBACK_MQTT_CLIENT_ESTABLISHED			= 202,
+	LWS_CALLBACK_MQTT_SUBSCRIBED				= 203,
+	LWS_CALLBACK_MQTT_CLIENT_WRITEABLE			= 204,
+	LWS_CALLBACK_MQTT_CLIENT_RX				= 205,
+	LWS_CALLBACK_MQTT_UNSUBSCRIBED				= 206,
+	LWS_CALLBACK_MQTT_DROP_PROTOCOL				= 207,
+	LWS_CALLBACK_MQTT_CLIENT_CLOSED				= 208,
+	LWS_CALLBACK_MQTT_ACK					= 209,
+	/**< When a message is fully sent, if QoS0 this callback is generated
+	 * to locally "acknowledge" it.  For QoS1, this callback is only
+	 * generated when the matching PUBACK is received.  Return nonzero to
+	 * close the wsi.
+	 */
+	LWS_CALLBACK_MQTT_RESEND				= 210,
+	/**< In QoS1, this callback is generated instead of the _ACK one if
+	 * we timed out waiting for a PUBACK and we must resend the message.
+	 * Return nonzero to close the wsi.
+	 */
 
 	/****** add new things just above ---^ ******/
 

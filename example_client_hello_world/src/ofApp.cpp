@@ -3,7 +3,7 @@
 //--------------------------------------------------------------
 void ofApp::setup(){
     ofBackground(0);
-    ofSetLogLevel(OF_LOG_VERBOSE);
+    ofSetLogLevel(OF_LOG_NOTICE);
     // basic connection:
     client.connect("echo.websocket.org");
     // OR optionally use SSL
@@ -31,6 +31,7 @@ void ofApp::setup(){
     
     client.addListener(this);
     ofSetFrameRate(60);
+
 }
 
 //--------------------------------------------------------------
@@ -45,39 +46,34 @@ void ofApp::draw(){
 
 //--------------------------------------------------------------
 void ofApp::onConnect( ofxLibwebsockets::Event& args ){
-    cout<<"on connected"<<endl;
-}
-
-//--------------------------------------------------------------
-void ofApp::onOpen( ofxLibwebsockets::Event& args ){
-    cout<<"on open"<<endl;
+    ofLogNotice() << "Connected to: "<< args.conn.getClientIP();
 }
 
 //--------------------------------------------------------------
 void ofApp::onClose( ofxLibwebsockets::Event& args ){
-    cout<<"on close"<<endl;
+    ofLogVerbose() << "onClose";
 }
 
 //--------------------------------------------------------------
 void ofApp::onIdle( ofxLibwebsockets::Event& args ){
-    cout<<"on idle"<<endl;
+    ofLogVerbose() << "onIdle";
 }
 
 //--------------------------------------------------------------
 void ofApp::onMessage( ofxLibwebsockets::Event& args ){
-    cout<<"got message "<<args.message<<endl;
+    ofLogNotice() << "Got message: " << args.message;
 }
 
 //--------------------------------------------------------------
 void ofApp::onBroadcast( ofxLibwebsockets::Event& args ){
-    cout<<"got broadcast "<<args.message<<endl;
+    ofLogNotice() << "Got broadcast: " <<args.message;
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
     
     client.send("Hello");
-    cout << "sending hello" <<endl;
+    ofLogNotice() << "Sending: Hello";
 }
 
 //--------------------------------------------------------------
@@ -97,6 +93,7 @@ void ofApp::mouseDragged(int x, int y, int button){
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button){
+
 }
 
 //--------------------------------------------------------------

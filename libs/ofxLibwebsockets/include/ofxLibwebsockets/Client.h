@@ -72,7 +72,6 @@ namespace ofxLibwebsockets {
         template<class T>
         void addListener(T * app){
             ofAddListener( clientProtocol.onconnectEvent, app, &T::onConnect); 
-            ofAddListener( clientProtocol.onopenEvent, app, &T::onOpen);
             ofAddListener( clientProtocol.oncloseEvent, app, &T::onClose);
             ofAddListener( clientProtocol.onidleEvent, app, &T::onIdle);
             ofAddListener( clientProtocol.onmessageEvent, app, &T::onMessage);

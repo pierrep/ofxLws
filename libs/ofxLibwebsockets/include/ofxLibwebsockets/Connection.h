@@ -56,11 +56,9 @@ namespace ofxLibwebsockets {
         std::string getClientIP();
         std::string getClientName();
         
-        // 'private' accessor for static libwebsockets loop stuff
         
         void setupAddress();
         
-        //lws_context* context;
         lws* ws;
         Reactor*  reactor;
         Protocol* protocol;

@@ -28,8 +28,10 @@ obj/
 *.pbxuser
 *.perspectivev3
 
-#linux temporary files
+#linux 
 *~
+*_debug
+*.qbs.user
 
 #vs2010 user files
 *.sdf

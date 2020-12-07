@@ -58,8 +58,6 @@ namespace ofxLibwebsockets {
         
         // close the server
         void close();
-
-        void closeConnection(string ip_address);
         
         // send to all connections
         void send( string message );

@@ -21,7 +21,7 @@ namespace ofxLibwebsockets {
         largeBinaryMessage.clear();
         largeBinarySize     = 0;
         bReceivingLargeMessage  = false;
-        bAllowDuplicateConnections = false;
+        bAllowDuplicateConnections = true;
     }
 
     //--------------------------------------------------------------

@@ -28,6 +28,8 @@ namespace ofxLibwebsockets {
         //void close(Connection* const conn); // close a specific connection
         void registerProtocol(const std::string& name, Protocol& protocol);
         
+        void setDuplicateConnections(bool val) { bAllowDuplicateConnections = val;}
+
         // parse JSON automatically? (true by default)
         bool bParseJSON;
         

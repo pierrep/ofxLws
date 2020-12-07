@@ -218,18 +218,6 @@ namespace ofxLibwebsockets {
     }
 
     //--------------------------------------------------------------
-    void Server::closeConnection(string ip_address)
-    {
-        for (size_t i=0; i<connections.size(); i++){
-            if ( std::strcmp(connections[i]->getClientIP().c_str(),ip_address.c_str()) == 0) {
-                lock();
-                connections.erase( connections.begin() + i );
-                unlock();
-            }
-        }
-    }
-
-    //--------------------------------------------------------------
     void Server::threadedFunction()
     {
         while (isThreadRunning())

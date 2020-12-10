@@ -16,7 +16,7 @@ namespace ofxLibwebsockets {
     Reactor::Reactor()
     : context(NULL), waitMillis(20){
         //reactors.push_back(this);
-        bParseJSON = false;
+        bParseJSON = true;
         largeMessage = "";
         largeBinaryMessage.clear();
         largeBinarySize     = 0;

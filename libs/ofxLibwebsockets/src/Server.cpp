@@ -161,10 +161,17 @@ namespace ofxLibwebsockets {
     
     //--------------------------------------------------------------
     void Server::send( string message ){
+        bool bFound = false;
+        int index = 0;
         for (size_t i=0; i<connections.size(); i++){
             if ( connections[i] ){
                 connections[i]->send( message );
+                bFound = true;
+                index = (int)i;
             }
+        }
+        if ( !bFound ) {
+            ofLogError("Server") << "Connection not found at index " << index;
         }
     }
     
@@ -188,7 +195,7 @@ namespace ofxLibwebsockets {
     }
     
     //--------------------------------------------------------------
-    void Server::send( string message, string ip ){
+    bool Server::send( string message, string ip ){
         bool bFound = false;
         for (size_t i=0; i<connections.size(); i++){
             if ( connections[i] ){
@@ -198,7 +205,11 @@ namespace ofxLibwebsockets {
                 }
             }
         }
-        if ( !bFound ) ofLogError("Server") << "Connection not found at this IP!";
+        if ( !bFound ) {
+            ofLogError("Server") << "Connection not found at this IP!";
+            return false;
+        }
+        return true;
     }
     
     //getters

@@ -82,7 +82,7 @@ namespace ofxLibwebsockets {
         void sendBinary( char * data, int size );
         
         // send to a specific connection
-        void send( string message, string ip );
+        bool send( string message, string ip );
         
         template<class T>
         void addListener(T * app){

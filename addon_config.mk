@@ -106,11 +106,13 @@ vs:
 
 
 linuxarmv6l:
-	ADDON_LDFLAGS = -lssl
+	#ADDON_LDFLAGS = -lwebsockets -lssl
 	# ADDON_SOURCES_EXCLUDE = libs/libwebsockets/include/win32port/%
 	ADDON_LIBS = libs/libwebsockets/lib/linuxarmv6l/libwebsockets.a
+	ADDON_LIBS += libs/ssl/linuxarm6l/libssl.a
+	ADDON_LIBS += libs/ssl/linuxarm6l/libcrypto.a
 linuxarmv7l:
-	ADDON_LDFLAGS = -lssl
+	#ADDON_LDFLAGS = -lwebsockets -lssl
 	# ADDON_SOURCES_EXCLUDE = libs/libwebsockets/include/win32port/%
 	ADDON_LIBS = libs/libwebsockets/lib/linuxarmv7l/libwebsockets.a
 	

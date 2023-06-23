@@ -1,2 +1,2 @@
-ofxLibwebsockets
+ofxLws
 ofxTurboJpeg

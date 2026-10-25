@@ -66,10 +66,15 @@ common:
 	ADDON_LIBS_EXCLUDE =
 	
 linux64:
-	# binary libraries, these will be usually parsed from the file system but some 
-	# libraries need to passed to the linker in a specific order 
-	#nothing yet
-	
+	# libwebsockets 4.1.5, static, -fPIC, against the system's OpenSSL 3
+	# (scripts/build_libwebsockets_linux.sh)
+	ADDON_LIBS = libs/libwebsockets/lib/linux64/libwebsockets.a
+	ADDON_PKG_CONFIG_LIBRARIES = openssl
+
+linuxaarch64:
+	ADDON_LIBS = libs/libwebsockets/lib/linuxaarch64/libwebsockets.a
+	ADDON_PKG_CONFIG_LIBRARIES = openssl
+
 linux:
 	#nothing yet
 	
@@ -109,12 +114,12 @@ linuxarmv6l:
 	#ADDON_LDFLAGS = -lwebsockets -lssl
 	# ADDON_SOURCES_EXCLUDE = libs/libwebsockets/include/win32port/%
 	ADDON_LIBS = libs/libwebsockets/lib/linuxarmv6l/libwebsockets.a
-	ADDON_LIBS += libs/ssl/linuxarm6l/libssl.a
-	ADDON_LIBS += libs/ssl/linuxarm6l/libcrypto.a
+	ADDON_PKG_CONFIG_LIBRARIES = openssl
 linuxarmv7l:
 	#ADDON_LDFLAGS = -lwebsockets -lssl
 	# ADDON_SOURCES_EXCLUDE = libs/libwebsockets/include/win32port/%
 	ADDON_LIBS = libs/libwebsockets/lib/linuxarmv7l/libwebsockets.a
+	ADDON_PKG_CONFIG_LIBRARIES = openssl
 	
 android/armeabi:	
 	#nothing yet

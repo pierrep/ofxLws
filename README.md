@@ -8,3 +8,15 @@
 
 
 
+
+## Linux libraries
+
+`libs/libwebsockets/lib/linux64` (x86_64) and `linuxaarch64` (64-bit ARM: Raspberry Pi OS 64-bit, ARM
+servers) are libwebsockets 4.1.5, static, built with `-fPIC` (so apps link as PIE, the default on current
+distros) against OpenSSL 3, on Ubuntu 22.04: they link on Ubuntu 22.04+, Debian 12+ and Raspberry Pi OS
+Bookworm. Rebuild them with Docker:
+
+```sh
+scripts/build_libwebsockets_linux.sh           # both
+scripts/build_libwebsockets_linux.sh arm64     # or amd64
+```

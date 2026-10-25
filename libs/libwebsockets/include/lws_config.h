@@ -1,5 +1,11 @@
 /* lws_config.h  Generated from lws_config.h.in  */
 
+/* Visual Studio: lws_config_vs.h, from scripts/build_libwebsockets_vs.sh. The rest of this file
+ * is the Linux config (scripts/build_libwebsockets_linux.sh). */
+#if defined(_WIN32)
+#include "lws_config_vs.h"
+#else
+
 #ifndef NDEBUG
 	#ifndef _DEBUG
 		#define _DEBUG
@@ -196,3 +202,4 @@
 /* #undef LWS_WITH_LIBUV_INTERNAL */
 /* #undef LWS_WITH_PLUGINS_API */
 
+#endif /* _WIN32 */

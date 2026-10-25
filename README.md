@@ -27,3 +27,22 @@ The system OpenSSL 3 (`libssl-dev`) is linked through `addon_config.mk`. Rebuild
 scripts/build_libwebsockets_linux.sh                  # all
 scripts/build_libwebsockets_linux.sh arm64 armv6l     # some: amd64 arm64 armv7l armv6l
 ```
+
+## Visual Studio libraries
+
+libwebsockets 4.1.5, static, Release (`/MD`, also links into Debug builds) against openFrameworks' OpenSSL (`libs/openssl`):
+
+| Folder | For |
+|---|---|
+| `vs/x64` | x86_64 |
+| `vs/ARM64` | Windows on ARM, native |
+| `vs/ARM64EC` | Windows on ARM, x64-compatible |
+
+The projectGenerator picks the folder for each platform. Windows has its own `include/lws_config_vs.h`, which `include/lws_config.h` includes on `_WIN32`. Rebuild from Git Bash with Visual Studio and CMake installed, after downloading openFrameworks' libraries for each arch (`scripts/vs/download_libs.sh -a arm64` gets x64, ARM64 and ARM64EC):
+
+```sh
+scripts/build_libwebsockets_vs.sh                     # all
+scripts/build_libwebsockets_vs.sh ARM64 ARM64EC       # some: x64 ARM64 ARM64EC
+```
+
+openFrameworks' OpenSSL 4 made `ASN1_STRING` opaque, so the script patches one line of libwebsockets 4.1.5 (`ASN1_STRING_get0_data`, fine on OpenSSL 3 too).

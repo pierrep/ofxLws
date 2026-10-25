@@ -82,32 +82,16 @@ win_cb:
 	#nothing yet
 
 vs:
-	# source files, these will be usually parsed from the file system looking
-	# in the src folders in libs and the root of the addon. if your addon needs
-	# to include files in different places or a different set of files per platform
-	# they can be specified here
-	ADDON_SOURCES += 
-
-	# include search paths, this will be usually parsed from the file system
-	# but if the addon or addon libraries need special search paths they can be
-	# specified here separated by spaces or one per line using +=
-
-	# when parsing the file system looking for include paths exclude this for all or
-	# a specific platform
-	ADDON_INCLUDES_EXCLUDE
-	
-	# Win32/Debug
-	# ADDON_LIBS  = libs/libwebsockets/lib/vs/Win32/Debug/websockets.lib
-	# ADDON_LIBS += libs/libwebsockets/lib/vs/Win32/Debug/zlib_internal.lib
-	# Win32/Release
-	# ADDON_LIBS  = libs/libwebsockets/lib/vs/Win32/Release/websockets.lib
-	# ADDON_LIBS += libs/libwebsockets/lib/vs/Win32/Release/zlib_internal.lib
-	# x64/Debug 
-	# ADDON_LIBS  = libs/libwebsockets/lib/vs/x64/Debug/websockets_static.lib
-	# ADDON_LIBS += libs/libwebsockets/lib/vs/x64/Debug/ZLIB.lib
-	# x64/Release 
-	# ADDON_LIBS  = libs/libwebsockets/lib/vs/x64/Release/websockets_static.lib
-	# ADDON_LIBS += libs/libwebsockets/lib/vs/x64/Release/ZLIB.lib
+	# libwebsockets 4.1.5, static, Release (/MD, links into Debug too), against
+	# openFrameworks' OpenSSL (scripts/build_libwebsockets_vs.sh):
+	# lib/vs/x64, lib/vs/ARM64, lib/vs/ARM64EC, picked per platform by the projectGenerator.
+	# The addon's own OpenSSL headers are for osx, use openFrameworks' (libs/openssl).
+	ADDON_INCLUDES_EXCLUDE = libs/openssl/%
+	ADDON_LIBS += ws2_32.lib
+	ADDON_LIBS += iphlpapi.lib
+	ADDON_LIBS += userenv.lib
+	ADDON_LIBS += psapi.lib
+	ADDON_LIBS += crypt32.lib
 
 
 linuxarmv6l:

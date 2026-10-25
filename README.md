@@ -6,6 +6,17 @@
 * implements both client and server functionality of libwebsockets
 * includes support for sending text (strings) and binary data
 
+## macOS and iOS
+
+`libs/libwebsockets/lib/macos/libwebsockets.xcframework` is libwebsockets 4.1.5, static: macOS (arm64 + x86_64,
+10.15+), iOS and iOS Simulator (iOS 15+). It uses the OpenSSL openFrameworks ships, so the addon needs nothing else.
+Rebuild it (Xcode and CMake) with:
+
+```sh
+scripts/build_libwebsockets_apple.sh path/to/openFrameworks     # all slices
+scripts/build_libwebsockets_apple.sh path/to/openFrameworks macos
+```
+
 
 
 

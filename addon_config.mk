@@ -128,20 +128,12 @@ android/armeabi-v7a:
 	#nothing yet
 
 osx:
-	# ADDON_INCLUDES_EXCLUDE = libs/libwebsockets/include/win32port
-	# ADDON_INCLUDES_EXCLUDE += libs/libwebsockets/include/win32port/win32helpers
-	# OpenSSL support for OSX 10.11+
-	ADDON_INCLUDES 	+= libs/openssl/include
-	ADDON_LIBS 		+= libs/openssl/lib/osx/libcrypto.a
-	ADDON_LIBS 		+= libs/openssl/lib/osx/libssl.a
-
-	# OpenSSL support for OSX 10.11+
-	# ADDON_INCLUDES += ../../../libs/openssl/include
-	# ADDON_LIBS += ../../../libs/openssl/lib/osx/crypto.a
-	# ADDON_LIBS += ../../../libs/openssl/lib/osx/ssl.a
+	# libwebsockets 4.1.5 (scripts/build_libwebsockets_apple.sh), macOS slice
+	# (arm64 + x86_64, macOS 10.15+); OpenSSL comes from openFrameworks
+	ADDON_LIBS = libs/libwebsockets/lib/macos/libwebsockets.xcframework/macos-arm64_x86_64/libwebsockets.a
 
 ios:
-	# ADDON_INCLUDES_EXCLUDE = libs/libwebsockets/include/win32port/.*
-	# ADDON_INCLUDES_EXCLUDE += libs/libwebsockets/include/win32port/win32helpers/.*
-	# ADDON_SOURCES_EXCLUDE = libs/libwebsockets/include/win32port/.*
-	ADDON_LIBS = libs/libwebsockets/lib/iosarmv7/libwebsockets.a
+	# libwebsockets 4.1.5: Xcode picks the iOS device (arm64) or simulator
+	# (arm64 + x86_64) slice, iOS 15+; OpenSSL comes from openFrameworks
+	ADDON_LIBS =
+	ADDON_XCFRAMEWORKS = libs/libwebsockets/lib/macos/libwebsockets.xcframework
